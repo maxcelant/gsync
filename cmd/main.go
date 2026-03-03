@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	"github.com/maxcelant/git-synced/internal/config"
@@ -251,34 +251,34 @@ func defaultConfigPath() string {
 }
 
 func main() {
-	configPath := flag.String("config", defaultConfigPath(), "path to config file")
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, `git-synced — GitLab MR daily watcher
+	var configPath, format, outputDir string
 
-Usage:
-  git-synced [--config <path>]
+	rootCmd := &cobra.Command{
+		Use:   "git-synced",
+		Short: "GitLab MR daily watcher",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(configPath)
+			if err != nil {
+				return err
+			}
+			if cmd.Flags().Changed("format") {
+				cfg.Format = format
+			}
+			if cmd.Flags().Changed("output-dir") {
+				cfg.OutputDir = outputDir
+			}
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
+			return run(cfg)
+		},
+	}
 
-Flags:
-`)
-		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, `
-Cron example (runs at 9am daily):
-  0 9 * * * cd /path/to/git-synced && ./git-synced >> /tmp/mr-report.log 2>&1
-`)
-	}
-	flag.Parse()
+	rootCmd.Flags().StringVar(&configPath, "config", defaultConfigPath(), "path to config file")
+	rootCmd.Flags().StringVar(&format, "format", "", "output format: text | json | yaml (overrides config)")
+	rootCmd.Flags().StringVar(&outputDir, "output-dir", "", "output directory for report file (overrides config)")
 
-	cfg, err := config.Load(*configPath)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
-	if err := cfg.Validate(); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
-	if err := run(cfg); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

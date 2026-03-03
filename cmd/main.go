@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -187,7 +186,9 @@ func run(cfg config.Config) error {
 	for i := range cfg.Providers {
 		p := &cfg.Providers[i]
 
-		repos, err := expandRepos(*p, p.Repos)
+		provider := providers.NewGitLabProvider(*p)
+
+		repos, err := provider.Expand(p.Repos)
 		if err != nil {
 			return err
 		}
@@ -197,8 +198,6 @@ func run(cfg config.Config) error {
 		if p.LookbackHours > maxLookback {
 			maxLookback = p.LookbackHours
 		}
-
-		provider := providers.NewGitLabProvider(*p)
 
 		for _, repo := range p.Repos {
 			for _, author := range p.Authors {

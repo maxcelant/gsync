@@ -1,14 +1,14 @@
 format: "yaml"
 output_dir: "./reports"
 providers:
-  - name: gitlab
+  - name: gitlab # or github
     token: "gl***"
     base_url: "https://gitlab.com"
     lookback_hours: 96
-    state: "all"
+    state: "all" # closed, open
     authors:
       - bob
       - alice
     repos:
       - foo/bar
-      - foo/baz
+      - baz/*

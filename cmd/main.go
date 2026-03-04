@@ -28,6 +28,7 @@ func main() {
 
 	rootCmd.AddCommand(icmd.NewReportCmd(&configPath))
 	rootCmd.AddCommand(icmd.NewConfigCmd(&configPath))
+	rootCmd.AddCommand(icmd.NewTuiCmd(&configPath))
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

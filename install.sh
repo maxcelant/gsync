@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BINARY="git-synced"
+BINARY="gsync"
 INSTALL_DIR="/usr/local/bin"
 
 echo "Building $BINARY..."
@@ -10,7 +10,7 @@ go build -o "$BINARY" ./cmd/main.go
 echo "Installing to $INSTALL_DIR/$BINARY..."
 sudo mv "$BINARY" "$INSTALL_DIR/$BINARY"
 
-CONFIG_DIR="$HOME/.git-synced"
+CONFIG_DIR="$HOME/.gsync"
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "Creating config at $CONFIG_FILE..."

@@ -53,15 +53,17 @@ Flags override the values set in your config:
 | Flag | Description |
 |------|-------------|
 | `--format` | Output format: `text`, `json`, or `yaml` |
-| `--output-dir` | Directory to write the report file |
+| `--out` | Directory to write the report file |
+| `--lookback` | Hours to look back for MRs (overrides config) |
 | `--config` | Path to config file (default: `~/.git-synced/config.yaml`) |
 
 Examples:
 
 ```bash
 git-synced --format json
-git-synced --output-dir ~/reports
-git-synced --format text --output-dir ~/reports
+git-synced --out ~/reports
+git-synced --lookback 48
+git-synced --format text --out ~/reports
 git-synced --config /path/to/config.yaml
 ```
 

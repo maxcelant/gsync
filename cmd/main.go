@@ -74,6 +74,7 @@ func defaultConfigPath() string {
 
 func main() {
 	var configPath, format, outputDir string
+	var lookbackHours int
 
 	rootCmd := &cobra.Command{
 		Use:   "git-synced",
@@ -86,8 +87,13 @@ func main() {
 			if cmd.Flags().Changed("format") {
 				cfg.Format = format
 			}
-			if cmd.Flags().Changed("output-dir") {
+			if cmd.Flags().Changed("out") {
 				cfg.OutputDir = outputDir
+			}
+			if cmd.Flags().Changed("lookback") {
+				for i := range cfg.Providers {
+					cfg.Providers[i].LookbackHours = lookbackHours
+				}
 			}
 			if err := cfg.Validate(); err != nil {
 				return err
@@ -98,7 +104,8 @@ func main() {
 
 	rootCmd.Flags().StringVar(&configPath, "config", defaultConfigPath(), "path to config file")
 	rootCmd.Flags().StringVar(&format, "format", "", "output format: text | json | yaml (overrides config)")
-	rootCmd.Flags().StringVar(&outputDir, "output-dir", "", "output directory for report file (overrides config)")
+	rootCmd.Flags().StringVar(&outputDir, "out", "", "output directory for report file (overrides config)")
+	rootCmd.Flags().IntVar(&lookbackHours, "lookback", 0, "hours to look back for MRs (overrides config)")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

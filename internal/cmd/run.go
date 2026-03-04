@@ -8,6 +8,7 @@ import (
 	"github.com/maxcelant/git-synced/internal/config"
 	"github.com/maxcelant/git-synced/internal/providers"
 	"github.com/maxcelant/git-synced/internal/report"
+	"github.com/spf13/cobra"
 )
 
 var ProviderRegistry = map[string]providers.ProviderFunc{
@@ -15,7 +16,51 @@ var ProviderRegistry = map[string]providers.ProviderFunc{
 	"github": providers.NewGitHubProvider,
 }
 
-func Run(cfg config.Config) error {
+func NewReportCmd(configPath *string) *cobra.Command {
+	var format, outputDir string
+	var lookbackHours int
+	var authors []string
+
+	cmd := &cobra.Command{
+		Use:   "report",
+		Short: "Generate a merge request report",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(*configPath)
+			if err != nil {
+				return err
+			}
+			if cmd.Flags().Changed("format") {
+				cfg.Format = format
+			}
+			if cmd.Flags().Changed("out") {
+				cfg.OutputDir = outputDir
+			}
+			if cmd.Flags().Changed("lookback") {
+				for i := range cfg.Providers {
+					cfg.Providers[i].LookbackHours = lookbackHours
+				}
+			}
+			if cmd.Flags().Changed("authors") {
+				for i := range cfg.Providers {
+					cfg.Providers[i].Authors = authors
+				}
+			}
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
+			return run(cfg)
+		},
+	}
+
+	cmd.Flags().StringVar(&format, "format", "", "output format: text | json | yaml (overrides config)")
+	cmd.Flags().StringVar(&outputDir, "out", "", "output directory for report file (overrides config)")
+	cmd.Flags().IntVar(&lookbackHours, "lookback", 0, "hours to look back for MRs (overrides config)")
+	cmd.Flags().StringSliceVar(&authors, "authors", nil, "comma-separated list of authors to filter by (overrides config)")
+
+	return cmd
+}
+
+func run(cfg config.Config) error {
 	var entries []providers.Entry
 	var authors []string
 	seenAuthors := make(map[string]bool)

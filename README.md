@@ -1,6 +1,6 @@
 # Gsync
 
-A CLI tool that reports on merge requests created by a set of authors across one or more GitLab repositories within a configurable lookback window.
+A CLI tool that reports on merge requests created by a set of authors across one or more GitLab (or GitHub) repositories within a configurable lookback window.
 
 > **Note:** GitLab and GitHub are supported.
 
@@ -81,6 +81,23 @@ gsync --authors alice --authors bob
 gsync --format text --out ~/reports
 gsync --config /path/to/config.yaml
 ```
+
+## Config Subcommand
+
+Manage the config file from the CLI without editing YAML by hand.
+
+```bash
+gsync config show                                  # print current config as YAML
+gsync config set format text                       # set top-level field
+gsync config set out ~/reports
+gsync config add author alice                      # add to first provider
+gsync config add author alice --provider github    # add to specific provider
+gsync config remove author alice
+gsync config add repo org/newrepo --provider github
+gsync config remove repo org/newrepo --provider github
+```
+
+Supported fields for `gsync config set`: `format`, `out`.
 
 ## Cron
 

@@ -28,6 +28,8 @@ var (
 
 func Run(cfg config.Config) error {
 	tview.Styles.PrimitiveBackgroundColor = tcell.ColorDefault
+	tview.Styles.ContrastBackgroundColor = colorField
+	tview.Styles.MoreContrastBackgroundColor = colorField
 	tview.Styles.BorderColor = colorAccent
 	tview.Styles.TitleColor = colorAccent
 	tview.Styles.PrimaryTextColor = tcell.ColorWhite
@@ -79,7 +81,8 @@ func (t *TUI) buildFormPage() tview.Primitive {
 	}
 
 	addField := newInput("Add   ", "", 28)
-	addField.SetPlaceholder("username, then Enter")
+	addField.SetPlaceholder("username, then Enter").
+		SetPlaceholderTextColor(colorDim)
 
 	runBtn := styledButton(" Run  ")
 	quitBtn := styledButton(" Quit ")

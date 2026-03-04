@@ -56,6 +56,22 @@ providers:
 
 ## Usage
 
+### `gsync menu`
+
+Launch an interactive terminal menu to browse pull requests without writing a report file:
+
+```bash
+gsync menu
+```
+
+The menu walks through three screens:
+
+1. **Form** — set a date range, state filter, and authors. Authors are shown as a list; type a name and press `Enter` to add, press `d` or `Delete` to remove the selected one. Values are pre-filled from your config.
+2. **Loading** — fetches results from all configured providers.
+3. **Results** — scrollable list of PRs grouped by author. Press `Enter` on any PR to open it in your browser, and `q`/`Esc` to return to the form.
+
+---
+
 ### `gsync report`
 
 Generate a merge request report:
@@ -96,20 +112,6 @@ The `--config` flag is global and can be passed before any subcommand:
 ```bash
 gsync --config /path/to/config.yaml report
 ```
-
-### `gsync menu`
-
-Launch an interactive terminal menu to browse pull requests without writing a report file:
-
-```bash
-gsync menu
-```
-
-The menu walks through three screens:
-
-1. **Form** — set a date range, state filter, and authors (comma-separated). Values are pre-filled from your config.
-2. **Loading** — fetches results from all configured providers.
-3. **Results** — scrollable list of PRs grouped by author. Press `Enter` on any PR to open it in your browser, and `q`/`Esc` to return to the form.
 
 ## Config Subcommand
 

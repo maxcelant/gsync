@@ -21,21 +21,17 @@ type TUI struct {
 }
 
 var (
-	colorAccent     = tcell.NewRGBColor(99, 179, 237)  // soft blue
-	colorDim        = tcell.NewRGBColor(120, 120, 140) // muted grey
-	colorBackground = tcell.ColorDefault
+	colorAccent = tcell.NewRGBColor(99, 179, 237)  // soft blue
+	colorDim    = tcell.NewRGBColor(120, 120, 140) // muted grey
+	colorField  = tcell.NewRGBColor(49, 50, 68)    // dark slate for inputs
 )
 
 func Run(cfg config.Config) error {
-	tview.Styles.PrimitiveBackgroundColor = colorBackground
-	tview.Styles.ContrastBackgroundColor = tcell.NewRGBColor(30, 30, 46)
-	tview.Styles.MoreContrastBackgroundColor = tcell.NewRGBColor(49, 50, 68)
+	tview.Styles.PrimitiveBackgroundColor = tcell.ColorDefault
 	tview.Styles.BorderColor = colorAccent
 	tview.Styles.TitleColor = colorAccent
 	tview.Styles.PrimaryTextColor = tcell.ColorWhite
 	tview.Styles.SecondaryTextColor = colorDim
-	tview.Styles.TertiaryTextColor = colorDim
-	tview.Styles.InverseTextColor = tcell.ColorBlack
 
 	t := &TUI{app: tview.NewApplication(), cfg: cfg}
 	t.pages = tview.NewPages()
@@ -57,31 +53,111 @@ func Run(cfg config.Config) error {
 
 func (t *TUI) buildFormPage() tview.Primitive {
 	errView := tview.NewTextView().
-		SetTextColor(tcell.NewRGBColor(240, 100, 100)).
-		SetText("")
+		SetTextColor(tcell.NewRGBColor(240, 100, 100))
 
-	form := tview.NewForm()
-	form.SetFieldBackgroundColor(tcell.NewRGBColor(49, 50, 68))
-	form.SetFieldTextColor(tcell.ColorWhite)
-	form.SetLabelColor(colorAccent)
-	form.SetButtonBackgroundColor(tcell.NewRGBColor(49, 50, 68))
-	form.SetButtonTextColor(tcell.ColorWhite)
-	form.SetButtonActivatedStyle(tcell.StyleDefault.Background(colorAccent).Foreground(tcell.ColorBlack))
-	form.AddInputField("Since", defaultSince(), 20, nil, nil)
-	form.AddInputField("Until", defaultUntil(), 20, nil, nil)
-	form.AddDropDown("State", []string{"opened", "closed", "merged", "all"}, 0, nil)
-	form.AddInputField("Authors (comma-separated)", defaultAuthors(t.cfg), 40, nil, nil)
-	form.AddButton("Run", func() { t.startFetch(form, errView) })
-	form.AddButton("Quit", t.app.Stop)
-	form.SetBorder(true).SetTitle("  gsync  ").SetTitleAlign(tview.AlignLeft)
+	sinceField := newInput("Since ", defaultSince(), 20)
+	untilField := newInput("Until ", defaultUntil(), 20)
+
+	stateDD := tview.NewDropDown().
+		SetLabel("State ").
+		SetOptions([]string{"opened", "closed", "merged", "all"}, nil).
+		SetCurrentOption(0).
+		SetFieldBackgroundColor(colorField).
+		SetFieldTextColor(tcell.ColorWhite).
+		SetLabelColor(colorAccent)
+
+	authorList := tview.NewList().ShowSecondaryText(false)
+	authorList.SetMainTextColor(tcell.ColorWhite)
+	authorList.SetSelectedTextColor(tcell.ColorBlack)
+	authorList.SetSelectedBackgroundColor(colorAccent)
+	authorList.SetBorder(true).
+		SetTitle(" Authors  [::d]d · Del to remove[-:-:-] ").
+		SetTitleAlign(tview.AlignLeft).
+		SetBorderColor(colorDim)
+	for _, a := range defaultAuthorsList(t.cfg) {
+		authorList.AddItem("  "+a, "", 0, nil)
+	}
+
+	addField := newInput("Add   ", "", 28)
+	addField.SetPlaceholder("username, then Enter")
+
+	runBtn := styledButton(" Run  ")
+	quitBtn := styledButton(" Quit ")
+
+	// Add author on Enter in addField
+	addField.SetDoneFunc(func(key tcell.Key) {
+		if key != tcell.KeyEnter {
+			return
+		}
+		text := strings.TrimSpace(addField.GetText())
+		if text != "" {
+			authorList.AddItem("  "+text, "", 0, nil)
+			addField.SetText("")
+		}
+	})
+
+	// d / Delete removes the selected author
+	authorList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch {
+		case event.Key() == tcell.KeyDelete, event.Rune() == 'd':
+			if authorList.GetItemCount() > 0 {
+				authorList.RemoveItem(authorList.GetCurrentItem())
+			}
+			return nil
+		}
+		return event
+	})
+
+	runBtn.SetSelectedFunc(func() {
+		t.startFetch(sinceField, untilField, stateDD, authorList, errView)
+	})
+	quitBtn.SetSelectedFunc(t.app.Stop)
+
+	// Tab / Backtab focus chain
+	focusOrder := []tview.Primitive{sinceField, untilField, stateDD, authorList, addField, runBtn, quitBtn}
+	for i, prim := range focusOrder {
+		i := i
+		switch p := prim.(type) {
+		case *tview.InputField:
+			prev := p.GetInputCapture()
+			p.SetInputCapture(chainTab(t.app, focusOrder, i, prev))
+		case *tview.DropDown:
+			prev := p.GetInputCapture()
+			p.SetInputCapture(chainTab(t.app, focusOrder, i, prev))
+		case *tview.List:
+			prev := p.GetInputCapture()
+			p.SetInputCapture(chainTab(t.app, focusOrder, i, prev))
+		case *tview.Button:
+			prev := p.GetInputCapture()
+			p.SetInputCapture(chainTab(t.app, focusOrder, i, prev))
+		}
+	}
+
+	// Layout
+	buttonsRow := tview.NewFlex().
+		AddItem(runBtn, 8, 0, false).
+		AddItem(tview.NewBox(), 2, 0, false).
+		AddItem(quitBtn, 8, 0, false).
+		AddItem(nil, 0, 1, false)
+
+	inner := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(padV(sinceField), 3, 0, true).
+		AddItem(padV(untilField), 3, 0, false).
+		AddItem(padV(stateDD), 3, 0, false).
+		AddItem(authorList, 6, 0, false).
+		AddItem(padV(addField), 3, 0, false).
+		AddItem(buttonsRow, 1, 0, false).
+		AddItem(tview.NewBox(), 1, 0, false)
+
+	inner.SetBorder(true).SetTitle("  gsync  ").SetTitleAlign(tview.AlignLeft)
 
 	outer := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().
 			AddItem(nil, 0, 1, false).
-			AddItem(form, 60, 0, true).
+			AddItem(inner, 62, 0, true).
 			AddItem(nil, 0, 1, false),
-			14, 0, true).
+			26, 0, true).
 		AddItem(errView, 1, 0, false).
 		AddItem(nil, 0, 1, false)
 
@@ -137,19 +213,21 @@ func (t *TUI) buildResultsPage(authors []string, entries []providers.Entry) tvie
 		SetDynamicColors(true).
 		SetTextColor(colorDim)
 
-	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+	return tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(header, 1, 0, false).
 		AddItem(list, 0, 1, true).
 		AddItem(footer, 1, 0, false)
-
-	return flex
 }
 
-func (t *TUI) startFetch(form *tview.Form, errView *tview.TextView) {
-	since := form.GetFormItemByLabel("Since").(*tview.InputField).GetText()
-	until := form.GetFormItemByLabel("Until").(*tview.InputField).GetText()
-	_, state := form.GetFormItemByLabel("State").(*tview.DropDown).GetCurrentOption()
-	authorsRaw := form.GetFormItemByLabel("Authors (comma-separated)").(*tview.InputField).GetText()
+func (t *TUI) startFetch(
+	sinceField, untilField *tview.InputField,
+	stateDD *tview.DropDown,
+	authorList *tview.List,
+	errView *tview.TextView,
+) {
+	since := sinceField.GetText()
+	until := untilField.GetText()
+	_, state := stateDD.GetCurrentOption()
 
 	var from time.Time
 	if since != "" {
@@ -171,17 +249,21 @@ func (t *TUI) startFetch(form *tview.Form, errView *tview.TextView) {
 		}
 	}
 
+	var authors []string
+	for i := 0; i < authorList.GetItemCount(); i++ {
+		main, _ := authorList.GetItemText(i)
+		authors = append(authors, strings.TrimSpace(main))
+	}
+
 	cfg := t.cfg
 	if state != "" && state != "all" {
 		for i := range cfg.Providers {
 			cfg.Providers[i].State = state
 		}
 	}
-
-	if authorsRaw != "" {
-		parts := splitAndTrim(authorsRaw)
+	if len(authors) > 0 {
 		for i := range cfg.Providers {
-			cfg.Providers[i].Authors = parts
+			cfg.Providers[i].Authors = authors
 		}
 	}
 
@@ -189,16 +271,57 @@ func (t *TUI) startFetch(form *tview.Form, errView *tview.TextView) {
 	t.pages.SwitchToPage("loading")
 
 	go func() {
-		entries, authors, _, err := fetch.Entries(cfg, from, untilTime)
+		entries, resultAuthors, _, err := fetch.Entries(cfg, from, untilTime)
 		t.app.QueueUpdateDraw(func() {
 			if err != nil {
 				t.pages.SwitchToPage("form")
 				errView.SetText(fmt.Sprintf(" error: %v", err))
 				return
 			}
-			t.pages.AddAndSwitchToPage("results", t.buildResultsPage(authors, entries), true)
+			t.pages.AddAndSwitchToPage("results", t.buildResultsPage(resultAuthors, entries), true)
 		})
 	}()
+}
+
+// chainTab wraps an existing input capture handler to add Tab/Backtab focus cycling.
+func chainTab(app *tview.Application, order []tview.Primitive, idx int, prev func(*tcell.EventKey) *tcell.EventKey) func(*tcell.EventKey) *tcell.EventKey {
+	return func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyTab:
+			app.SetFocus(order[(idx+1)%len(order)])
+			return nil
+		case tcell.KeyBacktab:
+			app.SetFocus(order[(idx-1+len(order))%len(order)])
+			return nil
+		}
+		if prev != nil {
+			return prev(event)
+		}
+		return event
+	}
+}
+
+// padV wraps a primitive in a Flex that adds one blank row above it.
+func padV(p tview.Primitive) tview.Primitive {
+	return tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(p, 1, 0, true)
+}
+
+func newInput(label, value string, width int) *tview.InputField {
+	return tview.NewInputField().
+		SetLabel(label).
+		SetText(value).
+		SetFieldWidth(width).
+		SetFieldBackgroundColor(colorField).
+		SetFieldTextColor(tcell.ColorWhite).
+		SetLabelColor(colorAccent)
+}
+
+func styledButton(label string) *tview.Button {
+	return tview.NewButton(label).
+		SetStyle(tcell.StyleDefault.Background(colorField).Foreground(tcell.ColorWhite)).
+		SetActivatedStyle(tcell.StyleDefault.Background(colorAccent).Foreground(tcell.ColorBlack))
 }
 
 func defaultSince() string {
@@ -209,7 +332,7 @@ func defaultUntil() string {
 	return time.Now().Format("2006-01-02")
 }
 
-func defaultAuthors(cfg config.Config) string {
+func defaultAuthorsList(cfg config.Config) []string {
 	seen := make(map[string]bool)
 	var authors []string
 	for _, p := range cfg.Providers {
@@ -220,19 +343,7 @@ func defaultAuthors(cfg config.Config) string {
 			}
 		}
 	}
-	return strings.Join(authors, ", ")
-}
-
-func splitAndTrim(s string) []string {
-	parts := strings.Split(s, ",")
-	var result []string
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			result = append(result, p)
-		}
-	}
-	return result
+	return authors
 }
 
 func openURL(url string) {

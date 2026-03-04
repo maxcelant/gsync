@@ -56,8 +56,12 @@ providers:
 
 ## Usage
 
+### `gsync report`
+
+Generate a merge request report:
+
 ```bash
-gsync
+gsync report
 ```
 
 Flags override the values set in your config:
@@ -68,18 +72,22 @@ Flags override the values set in your config:
 | `--out` | Directory to write the report file |
 | `--lookback` | Hours to look back for MRs (overrides config) |
 | `--authors` | Comma-separated list of authors to filter by (overrides config) |
-| `--config` | Path to config file (default: `~/.gsync/config.yaml`) |
 
 Examples:
 
 ```bash
-gsync --format json
-gsync --out ~/reports
-gsync --lookback 48
-gsync --authors alice,bob
-gsync --authors alice --authors bob
-gsync --format text --out ~/reports
-gsync --config /path/to/config.yaml
+gsync report --format json
+gsync report --out ~/reports
+gsync report --lookback 48
+gsync report --authors alice,bob
+gsync report --authors alice --authors bob
+gsync report --format text --out ~/reports
+```
+
+The `--config` flag is global and can be passed before any subcommand:
+
+```bash
+gsync --config /path/to/config.yaml report
 ```
 
 ## Config Subcommand
@@ -104,5 +112,5 @@ Supported fields for `gsync config set`: `format`, `out`.
 To run automatically each morning:
 
 ```
-0 9 * * * gsync >> /tmp/mr-report.log 2>&1
+0 9 * * * gsync report >> /tmp/mr-report.log 2>&1
 ```

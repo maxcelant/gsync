@@ -53,11 +53,13 @@ func main() {
 		},
 	}
 
-	rootCmd.Flags().StringVar(&configPath, "config", defaultConfigPath(), "path to config file")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", defaultConfigPath(), "path to config file")
 	rootCmd.Flags().StringVar(&format, "format", "", "output format: text | json | yaml (overrides config)")
 	rootCmd.Flags().StringVar(&outputDir, "out", "", "output directory for report file (overrides config)")
 	rootCmd.Flags().IntVar(&lookbackHours, "lookback", 0, "hours to look back for MRs (overrides config)")
 	rootCmd.Flags().StringSliceVar(&authors, "authors", nil, "comma-separated list of authors to filter by (overrides config)")
+
+	rootCmd.AddCommand(icmd.NewConfigCmd(&configPath))
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

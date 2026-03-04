@@ -54,6 +54,15 @@ func Load(path string) (Config, error) {
 	return cfg, nil
 }
 
+func Save(path string, cfg Config) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("saving config: %w", err)
+	}
+	defer f.Close()
+	return yaml.NewEncoder(f).Encode(cfg)
+}
+
 func (c Config) Validate() error {
 	if len(c.Providers) == 0 {
 		return fmt.Errorf("at least one provider is required in config")
